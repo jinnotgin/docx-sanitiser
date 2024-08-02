@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>DOCX Sanitiser</title>
+		<script>
+			const predefinedReplacements = {
+				caseInsensitive: [
+					["titan platform", "Client_Platform"],
+					["singapore", "Country"],
+				],
+				caseSensitive: [
+					["NRIC", "National_ID"],
+					["FIN", "Foreigner_ID"],
+				],
+			};
+		</script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.0/mammoth.browser.min.js"></script>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+			rel="stylesheet"
+			/>
+	</head>
+	<body class="bg-gray-100 font-sans pt-6 pb-10">
+		<div class="container mx-auto px-4 max-w-2xl">
+			<h1 class="text-3xl font-bold mb-8 text-gray-800 text-center">
+				DOCX Sanitiser
+			</h1>
+			<div class="bg-white shadow-lg rounded px-8 py-6 mb-8 flex flex-col gap-4">
+				<div class="">
+					<label
+						class="block text-gray-700 text-sm font-medium mb-2"
+						for="docxFile"
+						>
+					Upload DOCX file
+					</label>
+					<input
+						class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+						id="docxFile"
+						type="file"
+						accept=".docx"
+						/>
+				</div>
+				<div class="flex space-x-4">
+					<button
+						class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50"
+						onclick="toggleSettings()"
+						>
+					Advanced Settings
+					</button>
+					<button
+						class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+						onclick="processDocument()"
+						>
+					Process Document
+					</button>
+				</div>
+				<div id="settings" class="hidden space-y-4">
+					<hr class="my-2"/>
+					<div class="flex items-center">
+						<input
+							type="checkbox"
+							class="form-checkbox h-5 w-5 text-indigo-600"
+							id="removeImages"
+							checked
+							/>
+						<label class="ml-2 text-gray-700" for="removeImages"
+							>Remove all images</label
+							>
+					</div>
+					<div id="caseInsensitiveReplacements">
+						<h2 class="text-xl font-medium mb-3 text-gray-700">
+							Case-insensitive Replacements
+						</h2>
+						<div id="caseInsensitiveContainer" class="space-y-2"></div>
+						<button
+							class="mt-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-3 rounded text-sm transition duration-300 ease-in-out"
+							onclick="addReplacementPair('caseInsensitiveContainer')"
+							>
+						Add Pair
+						</button>
+					</div>
+					<div id="caseSensitiveReplacements">
+						<h2 class="text-xl font-medium mb-3 text-gray-700">
+							Case-sensitive Replacements
+						</h2>
+						<div id="caseSensitiveContainer" class="space-y-2"></div>
+						<button
+							class="mt-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-3 rounded text-sm transition duration-300 ease-in-out"
+							onclick="addReplacementPair('caseSensitiveContainer')"
+							>
+						Add Pair
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div id="outputContainer" class="container mx-auto px-4 max-w-4xl transition-all duration-300 ease-in-out flex flex-col gap-4 hidden">
+			<div class="flex justify-between">
+				<div class="flex justify-end space-x-2">
+					<button class="width-button px-3 py-1 bg-gray-200 rounded" data-width="normal">Normal</button>
+					<button class="width-button px-3 py-1 bg-gray-200 rounded" data-width="expanded">Expanded</button>
+					<button class="width-button px-3 py-1 bg-gray-200 rounded" data-width="fit">Fit to Width</button>
+				</div>
+				<button
+					id="printPreviewButton"
+					class="px-3 py-1 bg-gray-200 rounded"
+					onclick="printPreviewOutput()"
+					disabled
+					>
+				Save as PDF
+				</button>
+			</div>
+			<div
+				id="output"
+				class="bg-white shadow-lg rounded px-8 py-6 prose"
+				contenteditable="true"
+				></div>
+			<div class="flex justify-between mb-4">
+				<div class="flex justify-end space-x-2">
+					<button class="width-button px-3 py-1 bg-gray-200 rounded" data-width="normal">Normal</button>
+					<button class="width-button px-3 py-1 bg-gray-200 rounded" data-width="expanded">Expanded</button>
+					<button class="width-button px-3 py-1 bg-gray-200 rounded" data-width="fit">Fit to Width</button>
+				</div>
+				<button
+					id="printPreviewButton"
+					class="px-3 py-1 bg-gray-200 rounded"
+					onclick="printPreviewOutput()"
+					disabled
+					>
+				Save as PDF
+				</button>
+			</div>
+		</div>
+		<footer class="text-center mt-4 text-gray-600">
+			Made by
+			<a
+				href="https://linjin.me"
+				target="_blank"
+				class="text-blue-600 hover:underline"
+				>Jin</a
+				>, with
+			<a
+				href="https://www.anthropic.com/news/claude-3-5-sonnet"
+				target="_blank"
+				class="text-blue-600 hover:underline"
+				>Claude 3.5 Sonnet</a
+				>
+		</footer>
+		</div>
+		<script>
+			tailwind.config = {
+				theme: {
+					extend: {
+						fontFamily: {
+							sans: ["Inter", "sans-serif"],
+						},
+					},
+				},
+			};
+		</script>
+		<script>
+			function toggleSettings() {
+				const settings = document.getElementById("settings");
+				settings.classList.toggle("hidden");
+			}
+			
+			function closeSettings() {
+					const settings = document.getElementById("settings");
+					if (!settings.classList.contains("hidden")) {
+							settings.classList.add("hidden");
+					}
+			}
+			
+			function addReplacementPair(containerId, from = "", to = "") {
+				const container = document.getElementById(containerId);
+				const newPair = document.createElement("div");
+				newPair.className = "replacement-pair flex space-x-2";
+				newPair.innerHTML = `
+					<input class="flex-1 shadow-sm border border-gray-300 rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" type="text" placeholder="Replace from" value="${from}">
+					<input class="flex-1 shadow-sm border border-gray-300 rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" type="text" placeholder="Replace to" value="${to}">
+					<button class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-3 rounded transition duration-300 ease-in-out" onclick="removeReplacementPair(this)">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+							<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+						</svg>
+					</button>
+				`;
+				container.appendChild(newPair);
+			}
+			
+			function removeReplacementPair(button) {
+				const pairDiv = button.closest(".replacement-pair");
+				pairDiv.remove();
+			}
+			
+			function initializeReplacements() {
+				predefinedReplacements.caseInsensitive.forEach(([from, to]) => {
+					addReplacementPair("caseInsensitiveContainer", from, to);
+				});
+				predefinedReplacements.caseSensitive.forEach(([from, to]) => {
+					addReplacementPair("caseSensitiveContainer", from, to);
+				});
+			}
+			
+			function applyTailwindClasses() {
+				const output = document.getElementById("output");
+			
+				output.classList.add("text-sm", "leading-normal");
+			
+				output.querySelectorAll("pre").forEach((el) => {
+					el.classList.add(
+						"px-4",
+						"pt-0",
+						"pb-4",
+						"rounded",
+						"bg-gray-100",
+						"text-gray-800",
+						"overflow-x-auto"
+					);
+				});
+			
+				output.querySelectorAll("code").forEach((el) => {
+					el.classList.add(
+						"font-mono",
+						"text-sm",
+						"bg-gray-100",
+						"px-1",
+						"py-0.5",
+						"rounded"
+					);
+				});
+			
+				output.querySelectorAll("p").forEach((el) => {
+					el.classList.add("mb-4");
+				});
+			
+				output.querySelectorAll("h1").forEach((el) => {
+					el.classList.add("text-3xl", "font-bold", "mt-6", "mb-4");
+				});
+			
+				output.querySelectorAll("h2").forEach((el) => {
+					el.classList.add("text-2xl", "font-bold", "mt-6", "mb-4");
+				});
+			
+				output.querySelectorAll("h3").forEach((el) => {
+					el.classList.add("text-xl", "font-bold", "mt-6", "mb-4");
+				});
+			
+				output.querySelectorAll("h4").forEach((el) => {
+					el.classList.add("text-lg", "font-bold", "mt-6", "mb-4");
+				});
+			
+				output.querySelectorAll("h5, h6").forEach((el) => {
+					el.classList.add("text-base", "font-bold", "mt-6", "mb-4");
+				});
+			
+				output.querySelectorAll("ul, ol").forEach((el) => {
+					el.classList.add("pl-8", "mb-4", "list-disc");
+				});
+			
+				output.querySelectorAll("ol").forEach((el) => {
+					el.classList.add("list-decimal");
+				});
+			
+				output.querySelectorAll("li").forEach((el) => {
+					el.classList.add("mb-2");
+				});
+			
+				output.querySelectorAll("a").forEach((el) => {
+					el.classList.add("text-blue-600", "hover:underline");
+				});
+			
+				output.querySelectorAll("blockquote").forEach((el) => {
+					el.classList.add(
+						"border-l-4",
+						"border-gray-300",
+						"pl-4",
+						"italic",
+						"my-4"
+					);
+				});
+			
+				output.querySelectorAll("table").forEach((el) => {
+					el.classList.add("w-full", "border-collapse", "mb-4");
+				});
+			
+				output.querySelectorAll("th, td").forEach((el) => {
+					el.classList.add("border", "border-gray-300", "px-4", "py-2");
+				});
+			
+				output.querySelectorAll("img").forEach((el) => {
+					el.classList.add("max-w-full", "h-auto");
+				});
+			}
+			
+			async function processDocument() {
+				const fileInput = document.getElementById("docxFile");
+				const file = fileInput.files[0];
+				if (!file) {
+					alert("Please select a DOCX file.");
+					return;
+				}
+			
+				const caseInsensitiveReplacements = getReplacements(
+					"caseInsensitiveContainer"
+				);
+				const caseSensitiveReplacements = getReplacements(
+					"caseSensitiveContainer"
+				);
+				const removeImages = document.getElementById("removeImages").checked;
+			
+				const arrayBuffer = await file.arrayBuffer();
+				const result = await mammoth.convertToHtml({
+					arrayBuffer: arrayBuffer,
+				});
+				let html = result.value;
+			
+				// Create a temporary div to hold the HTML content
+				const tempDiv = document.createElement("div");
+				tempDiv.innerHTML = html;
+			
+				// Function to apply replacements to a text node
+				function applyReplacements(textNode) {
+					let text = textNode.textContent;
+			
+					// Case-insensitive replacements
+					caseInsensitiveReplacements.forEach(({ from, to }) => {
+						if (from && to) {
+							const regex = new RegExp(from, "gi");
+							text = text.replace(regex, `{${to}}`);
+						}
+					});
+			
+					// Case-sensitive replacements
+					caseSensitiveReplacements.forEach(({ from, to }) => {
+						if (from && to) {
+							const regex = new RegExp(from, "g");
+							text = text.replace(regex, `{${to}}`);
+						}
+					});
+			
+					textNode.textContent = text;
+				}
+			
+				// Recursive function to traverse and process text nodes
+				function processNode(node) {
+					if (node.nodeType === Node.TEXT_NODE) {
+						applyReplacements(node);
+					} else {
+						for (let i = 0; i < node.childNodes.length; i++) {
+							processNode(node.childNodes[i]);
+						}
+					}
+				}
+			
+				// Process all nodes in the temporary div
+				processNode(tempDiv);
+			
+				// Remove images if the option is checked
+				if (removeImages) {
+					tempDiv.querySelectorAll("img").forEach((img) => img.remove());
+				}
+			
+				// Get the processed HTML
+				html = tempDiv.innerHTML;
+			
+				// Add custom styles for Mammoth output
+				html =
+					`
+			 <style>
+			   #output img { max-width: 100%; height: auto; }
+			   #output table { border-collapse: collapse; width: 100%; }
+			   #output td, #output th { border: 1px solid #ddd; padding: 8px; }
+			   #output tr:nth-child(even) { background-color: #f2f2f2; }
+			   #output th { padding-top: 12px; padding-bottom: 12px; text-align: left; background-color: #4CAF50; color: white; }
+			 </style>
+			` + html;
+			
+				document.getElementById("output").innerHTML = html;
+				applyTailwindClasses();
+			
+				// Enable the Print Preview button and show the output
+				document.getElementById("printPreviewButton").disabled = false;
+				document
+					.getElementById("printPreviewButton")
+					.classList.remove("opacity-50", "cursor-not-allowed");
+				document.getElementById("outputContainer").classList.remove("hidden");
+				
+				// Close the advanced settings if open
+				closeSettings();
+			
+				// Scroll the output container into view
+				// document.getElementById("outputContainer").scrollIntoView({ behavior: 'smooth' });
+			}
+			function getReplacements(containerId) {
+			const container = document.getElementById(containerId);
+			const pairs = container.getElementsByClassName("replacement-pair");
+			
+			const replacements = Array.from(pairs).map((pair) => {
+			const inputs = pair.getElementsByTagName("input");
+			return { from: inputs[0].value, to: inputs[1].value };
+			});
+			
+			return replacements.sort((a, b) => b.from.length - a.from.length);
+			}
+			function printPreviewOutput() {
+				const element = document.getElementById("output");
+			
+				if (element) {
+					// Create a new window for print preview
+					const printWindow = window.open("", "_blank");
+			
+					// Get all stylesheets from the current document
+					const stylesheets = Array.from(document.styleSheets);
+					let styles = "";
+			
+					// Extract styles from each stylesheet
+					stylesheets.forEach((stylesheet) => {
+						try {
+							const rules = Array.from(stylesheet.cssRules);
+							rules.forEach((rule) => {
+								styles += rule.cssText + "\n";
+							});
+						} catch (e) {
+							console.warn("Cannot access stylesheet", e);
+						}
+					});
+			
+					// Create the HTML content for the new window
+					const printDocument = printWindow.document;
+					printDocument.open();
+					printDocument.write(`
+			   <!DOCTYPE html>
+			   <html>
+			   <head>
+			     <title>${document.title} - Print Preview</title>
+			     <style>
+			       ${styles}
+			       body { padding: 40px; }
+			     </style>
+			   </head>
+			   <body>
+				<div id="output">
+			     	${element.innerHTML}
+				</div>
+			   </body>
+			   </html>
+			 `);
+					printDocument.close();
+			
+					// Trigger the print preview
+					printWindow.onload = () => {
+						printWindow.print();
+					};
+				}
+			}
+			
+			function changeOutputWidth(width) {
+			const outputContainer = document.getElementById('outputContainer');
+			const output = document.getElementById('output');
+			
+			if (width === 'normal') {
+			 outputContainer.style.maxWidth = '56rem'; // 4xl in Tailwind
+			} else if (width === 'expanded') {
+			 outputContainer.style.maxWidth = '80rem'; // 7xl in Tailwind
+			} else if (width === 'fit') {
+			 outputContainer.style.maxWidth = '100%';
+			}
+			
+			output.style.width = '100%';
+			}
+			
+			// Add event listeners to each width button
+			document.querySelectorAll('.width-button').forEach(button => {
+			 button.addEventListener('click', () => {
+			     const width = button.getAttribute('data-width');
+			     changeOutputWidth(width);
+			 });
+			});
+			
+			// Initialize replacements on page load
+			window.onload = initializeReplacements;
+		</script>
+	</body>
+</html>
